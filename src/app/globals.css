@@ -1,0 +1,12 @@
+html, body { margin: 0; padding: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background: #0b0b0c; color: #f3f3f3; }
+a { color: inherit; }
+.container { max-width: 980px; margin: 0 auto; padding: 28px 18px; }
+.card { background: #141416; border: 1px solid #232327; border-radius: 16px; padding: 18px; }
+.row { display: flex; gap: 14px; flex-wrap: wrap; }
+.btn { background: #f3f3f3; color: #0b0b0c; border: 0; border-radius: 12px; padding: 10px 12px; font-weight: 600; cursor: pointer; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.input, select { background: #0f0f11; border: 1px solid #2a2a2e; border-radius: 12px; color: #f3f3f3; padding: 10px 12px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; white-space: pre-wrap; }
+.badge { display:inline-block; padding: 4px 8px; border-radius: 999px; border: 1px solid #2a2a2e; background: #0f0f11; font-size: 12px; }
+hr { border: none; border-top: 1px solid #232327; margin: 14px 0; }
+.small { opacity: 0.8; font-size: 13px; }

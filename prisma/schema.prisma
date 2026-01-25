@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Scan {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  rawText       String
+  game          String   // "pokemon" | "mtg" | "unknown"
+  imageName     String?
+  resolvedCard  String?  // provider-specific id
+  resolvedName  String?
+  confidence    Float?
+
+  priceSnapshots PriceSnapshot[]
+}
+
+model PriceSnapshot {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  scanId    String
+  provider  String
+  currency  String   @default("USD")
+  avg       Float?
+  low       Float?
+  high      Float?
+  volume    Int?
+
+  scan Scan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@index([scanId, createdAt])
+}
