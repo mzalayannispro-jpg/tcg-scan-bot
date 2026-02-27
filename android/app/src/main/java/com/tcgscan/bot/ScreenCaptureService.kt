@@ -46,17 +46,33 @@ class ScreenCaptureService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification())
         setupOverlay()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 1. D'ABORD : Lancer le Foreground Service officiellement
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID, 
+                createNotification(), 
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, createNotification())
+        }
+
+        // 2. ENSUITE : Seulement quand le système a validé l'étape 1, demander la MediaProjection
         val resultCode = intent?.getIntExtra("resultCode", 0) ?: 0
         val data = intent?.getParcelableExtra<Intent>("data")
 
-        if (data != null) {
-            val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            mediaProjection = mpm.getMediaProjection(resultCode, data)
+        if (data != null && mediaProjection == null) {
+            try {
+                val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                mediaProjection = mpm.getMediaProjection(resultCode, data)
+            } catch (e: SecurityException) {
+                e.printStackTrace()
+                stopSelf() // Force exit if permission fails
+            }
         }
         return START_STICKY
     }
@@ -89,7 +105,7 @@ class ScreenCaptureService : Service() {
     }
 
     private fun setupOverlay() {
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         val layoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -162,22 +178,37 @@ class ScreenCaptureService : Service() {
     private fun startCapture() {
         val metrics = resources.displayMetrics
         imageReader = ImageReader.newInstance(metrics.widthPixels, metrics.heightPixels, PixelFormat.RGBA_8888, 2)
-        virtualDisplay = mediaProjection?.createVirtualDisplay(
-            "TCGScan", metrics.widthPixels, metrics.heightPixels, metrics.densityDpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, imageReader!!.surface, null, null
-        )
+        try {
+            virtualDisplay = mediaProjection?.createVirtualDisplay(
+                "TCGScan", metrics.widthPixels, metrics.heightPixels, metrics.densityDpi,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, imageReader!!.surface, null, null
+            )
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+            val resultText = overlayView?.findViewById<TextView>(R.id.resultText)
+            resultText?.text = "Erreur: L'application bloque la capture d'écran."
+            resultText?.setTextColor(Color.RED)
+            stopCapture()
+            capturing = false
+            overlayView?.findViewById<Button>(R.id.btnToggleScan)?.text = "SCAN OFF"
+            return
+        }
 
         handler.post(object : Runnable {
             override fun run() {
                 if (!capturing) return
-                val image = imageReader?.acquireLatestImage()
-                image?.let {
-                    val bitmap = ImageUtils.imageToBitmap(it)
-                    if (bitmap != null) {
-                        val result = TcgAnalyzer.analyzeBitmap(bitmap)
-                        updateUI(result)
+                try {
+                    val image = imageReader?.acquireLatestImage()
+                    image?.let {
+                        val bitmap = ImageUtils.imageToBitmap(it)
+                        if (bitmap != null) {
+                            val result = TcgAnalyzer.analyzeBitmap(bitmap)
+                            updateUI(result)
+                        }
+                        it.close()
                     }
-                    it.close()
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
                 handler.postDelayed(this, 1500L)
             }
