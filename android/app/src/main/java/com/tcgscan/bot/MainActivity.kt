@@ -20,7 +20,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Installer le mouchard de crash
+        Thread.setDefaultUncaughtExceptionHandler(CrashHandler(this))
+
         setContentView(R.layout.activity_main)
+
+        // Vérifier s'il y a eu un crash précédent
+        checkPreviousCrash()
 
         mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
@@ -30,6 +37,26 @@ class MainActivity : AppCompatActivity() {
         btnScanLive.setOnClickListener {
             statusText.text = "Vérification des permissions..."
             checkPermissionsAndStart()
+        }
+    }
+
+    private fun checkPreviousCrash() {
+        val prefs = getSharedPreferences("tcg_scan_prefs", Context.MODE_PRIVATE)
+        val lastCrash = prefs.getString("last_crash_log", null)
+        if (lastCrash != null) {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("🚨 Oups ! Un crash a été détecté")
+                .setMessage("L'application a planté la dernière fois. Voici l'erreur trouvée :\n\n$lastCrash")
+                .setPositiveButton("Copier & Fermer") { dialog, _ ->
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    val clip = android.content.ClipData.newPlainText("Crash Log", lastCrash)
+                    clipboard.setPrimaryClip(clip)
+                    Toast.makeText(this, "Erreur copiée ! Envoie-la au dév.", Toast.LENGTH_LONG).show()
+                    prefs.edit().remove("last_crash_log").apply()
+                    dialog.dismiss()
+                }
+                .setCancelable(false)
+                .show()
         }
     }
 

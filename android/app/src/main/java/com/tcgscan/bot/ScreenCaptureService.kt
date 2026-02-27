@@ -204,13 +204,29 @@ class ScreenCaptureService : Service() {
                         if (bitmap != null) {
                             val result = TcgAnalyzer.analyzeBitmap(bitmap)
                             updateUI(result)
+                            // CRITIQUE : Libérer le bitmap de la RAM pour éviter le crash OOM (OutOfMemoryError)
+                            bitmap.recycle()
                         }
                         it.close()
                     }
                 } catch (e: Exception) {
+                    // Ignorer les erreurs de frame isolé s'il s'agit d'une Exception
                     e.printStackTrace()
+                } catch (t: Throwable) {
+                    // Les erreurs de mémoire (OutOfMemoryError) sont des Throwables
+                    t.printStackTrace()
+                    val resultText = overlayView?.findViewById<TextView>(R.id.resultText)
+                    resultText?.text = "Mémoire saturée !"
+                    resultText?.setTextColor(Color.RED)
+                    stopCapture()
+                    capturing = false
+                    overlayView?.findViewById<Button>(R.id.btnToggleScan)?.text = "SCAN OFF"
+                    return
                 }
-                handler.postDelayed(this, 1500L)
+                
+                if (capturing) {
+                    handler.postDelayed(this, 1500L)
+                }
             }
         })
     }
